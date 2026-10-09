@@ -1,0 +1,48 @@
+{
+  "name": "@extraktor/cli",
+  "version": "0.1.0",
+  "description": "Read live web pages as Markdown and search the web from the terminal. Built for AI agents.",
+  "keywords": [
+    "agent",
+    "cli",
+    "extract",
+    "markdown",
+    "mcp",
+    "scrape",
+    "search",
+    "web"
+  ],
+  "homepage": "https://extraktor.app",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DennisKo/extraktor-cli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/DennisKo/extraktor-cli/issues"
+  },
+  "license": "MIT",
+  "bin": {
+    "extraktor": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "LICENSE"
+  ],
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p .",
+    "typecheck": "tsc -p tsconfig.test.json",
+    "test": "node --test test/*.test.ts",
+    "prepack": "npm run build"
+  },
+  "dependencies": {
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^6.0.2"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
