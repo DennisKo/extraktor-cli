@@ -16,8 +16,9 @@ import {
   MCP_HELP,
   SEARCH_HELP,
 } from "./help.ts";
-import type { AgentId, Exec } from "./install.ts";
+import type { AgentId, AgentResult, Exec, InstallContext } from "./install.ts";
 import type { ExtractArgs, ToolResult } from "./mcp.ts";
+import type { Picker } from "./pick.ts";
 import { closest, optionError, usageError } from "./usage.ts";
 import { VERSION } from "./version.ts";
 
@@ -45,6 +46,10 @@ export interface Io {
   /** Runs a program, for `mcp add`. Tests replace it. */
   exec?: Exec;
   platform?: NodeJS.Platform;
+  /** True when a person can answer questions: stdin and stdout are a terminal. */
+  interactive?: boolean;
+  /** Asks which agents `mcp add` changes. Tests replace it. */
+  pickAgents?: Picker;
 }
 
 const EXTRACT_FLAGS = {
@@ -557,14 +562,87 @@ const MCP_ACTIONS = new Set(["add", "remove"]);
 const isMcpAction = (value: string): value is "add" | "remove" =>
   MCP_ACTIONS.has(value);
 
+/** The agents that --agent names, or all agents. Unknown names are usage errors. */
+const namedAgents = async (names: string[] | undefined) => {
+  const { AGENT_IDS, isAgentId } = await import("./install.ts");
+  const ids = new Set<AgentId>();
+  for (const name of names ?? AGENT_IDS) {
+    if (!isAgentId(name)) {
+      const match = closest(name, [...AGENT_IDS]);
+      throw usageError(
+        `"${name}" is not an agent.${match ? ` Did you mean "--agent ${match}"?` : ""} Agents: ${AGENT_IDS.join(", ")}.`,
+        "mcp"
+      );
+    }
+    ids.add(name);
+  }
+  return ids;
+};
+
+/**
+ * Asks which agents to change, with the found agents selected. Returns null
+ * when the person cancels, and all agents when none is found, so that the
+ * caller reports that.
+ */
+const pickAgents = async (
+  action: "add" | "remove",
+  context: InstallContext,
+  io: Io
+): Promise<Set<AgentId> | null> => {
+  const { AGENTS, findAgents } = await import("./install.ts");
+  const found = await findAgents(context);
+  if (found.size === 0) {
+    return new Set(AGENTS.map(({ id }) => id));
+  }
+  let picker = io.pickAgents;
+  if (!picker) {
+    // The prompt library loads only here, for a person in a terminal.
+    const module = await import("./pick.ts");
+    picker = module.pickAgents;
+  }
+  return picker(
+    action,
+    AGENTS.map(({ id, name }) => ({ id, name, found: found.has(id) }))
+  );
+};
+
+/** Prints the result. Throws when no agent was found or a change failed. */
+const reportAgents = async (
+  action: "add" | "remove",
+  results: AgentResult[],
+  url: string,
+  json: boolean,
+  io: Io
+) => {
+  const found = results.filter(({ status }) => status !== "not-found");
+  if (found.length === 0 && action === "add") {
+    throw new CliError(
+      "No coding agent was found on this computer.",
+      EXIT.failure,
+      `Install Claude Code, Codex, Cursor, VS Code, Gemini CLI or Windsurf, then run this command again. Or add ${url} to your MCP client by hand.`,
+      "NO_AGENT_FOUND"
+    );
+  }
+  const { formatResults } = await import("./install.ts");
+  io.stdout(
+    json
+      ? `${JSON.stringify({ action, url, agents: results }, null, 2)}\n`
+      : formatResults(action, results, url)
+  );
+  const failed = results.filter(({ status }) => status === "failed").length;
+  if (failed > 0) {
+    throw new CliError(
+      `${failed} of ${found.length} agents failed. The output tells why.`,
+      EXIT.failure,
+      undefined,
+      SOME_AGENTS_FAILED
+    );
+  }
+};
+
 const mcp = async (args: string[], io: Io) => {
   const [action = "", ...rest] = args;
-  if (
-    action === "" ||
-    action === "help" ||
-    action === "--help" ||
-    action === "-h"
-  ) {
+  if (["", "help", "--help", "-h"].includes(action)) {
     io.stdout(MCP_HELP);
     return;
   }
@@ -582,49 +660,35 @@ const mcp = async (args: string[], io: Io) => {
   if (positionals.length > 0) {
     throw usageError(`mcp ${action} does not accept arguments.`, "mcp");
   }
-  const { AGENT_IDS, changeAgents, defaultExec, formatResults, isAgentId } =
-    await import("./install.ts");
-  const ids = new Set<AgentId>();
-  for (const name of values.agent ?? AGENT_IDS) {
-    if (!isAgentId(name)) {
-      const match = closest(name, [...AGENT_IDS]);
-      throw usageError(
-        `"${name}" is not an agent.${match ? ` Did you mean "--agent ${match}"?` : ""} Agents: ${AGENT_IDS.join(", ")}.`,
-        "mcp"
-      );
-    }
-    ids.add(name);
-  }
+  const [named, { changeAgents, defaultExec }] = await Promise.all([
+    namedAgents(values.agent),
+    import("./install.ts"),
+  ]);
+  let ids = named;
   const url = `${baseUrlOf(io.env)}/mcp`;
-  const results = await changeAgents(action, ids, {
+  const context: InstallContext = {
     env: io.env,
     exec: io.exec ?? defaultExec,
     platform: io.platform ?? process.platform,
     url,
-  });
-  const found = results.filter(({ status }) => status !== "not-found");
-  if (found.length === 0 && action === "add") {
-    throw new CliError(
-      "No coding agent was found on this computer.",
-      EXIT.failure,
-      `Install Claude Code, Codex, Cursor, VS Code, Gemini CLI or Windsurf, then run this command again. Or add ${url} to your MCP client by hand.`,
-      "NO_AGENT_FOUND"
-    );
+  };
+  // A person in a terminal picks the agents. Agents, scripts, --agent and
+  // --json change each agent that is found, with no question.
+  const ask =
+    io.interactive === true &&
+    values.agent === undefined &&
+    !values.json &&
+    detectAgent(io.env) === null;
+  if (ask) {
+    const picked = await pickAgents(action, context, io);
+    if (picked === null) {
+      io.stderr("Canceled. Nothing changed.\n");
+      return;
+    }
+    ids = picked;
   }
-  io.stdout(
-    values.json
-      ? `${JSON.stringify({ action, url, agents: results }, null, 2)}\n`
-      : formatResults(action, results, url)
-  );
-  const failed = results.filter(({ status }) => status === "failed").length;
-  if (failed > 0) {
-    throw new CliError(
-      `${failed} of ${found.length} agents failed. The output tells why.`,
-      EXIT.failure,
-      undefined,
-      SOME_AGENTS_FAILED
-    );
-  }
+  const results = await changeAgents(action, ids, context);
+  await reportAgents(action, results, url, values.json === true, io);
 };
 
 const COMMANDS = { extract, search, login, logout, mcp } satisfies Record<

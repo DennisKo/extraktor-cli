@@ -203,6 +203,10 @@ server (https://extraktor.app/mcp) to each one. Each agent opens a sign-in
 page when it first uses Extraktor. A second run changes nothing. remove
 removes the server from each agent.
 
+In a terminal, add and remove first ask which agents to change. When an
+agent or a script runs the command, or with --agent or --json, the command
+changes each agent that it finds and asks nothing.
+
 Agents: claude-code, codex, cursor, vscode, gemini-cli, windsurf. For the
 Claude app, open Settings > Connectors > Add custom connector and paste the
 server URL.

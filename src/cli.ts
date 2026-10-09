@@ -9,5 +9,7 @@ const exitCode = await run(process.argv.slice(2), {
   env: process.env,
   readStdin: () => text(process.stdin),
   cwd: process.cwd(),
+  interactive:
+    Boolean(process.stdin.isTTY && process.stdout.isTTY) && !process.env.CI,
 });
 process.exitCode = exitCode;

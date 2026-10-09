@@ -35,7 +35,7 @@ A long page comes in parts of about 24,000 characters. Each part gives the comma
 npx -y @extraktor/cli mcp add
 ```
 
-The command finds Claude Code, Codex, Cursor, VS Code, Gemini CLI and Windsurf on this computer and adds the server `https://extraktor.app/mcp` to each one. It keeps the other servers and settings, and a second run changes nothing. Each agent opens a sign-in page when it first uses Extraktor. The output shows the sign-in step for each agent.
+The command finds Claude Code, Codex, Cursor, VS Code, Gemini CLI and Windsurf on this computer and adds the server `https://extraktor.app/mcp` to each one. In a terminal, it first asks which agents to change. When an agent or a script runs it, it asks nothing. It keeps the other servers and settings, and a second run changes nothing. Each agent opens a sign-in page when it first uses Extraktor. The output shows the sign-in step for each agent.
 
 Use `--agent <name>` to change only some agents, and `--json` for a JSON result. `extraktor mcp remove` removes the server. For the Claude app, open **Settings > Connectors > Add custom connector** and paste the server URL.
 

@@ -9,7 +9,8 @@ import { z } from "zod";
 
 import { EXIT } from "../src/errors.ts";
 import { MAIN_HELP } from "../src/help.ts";
-import type { Exec } from "../src/install.ts";
+import type { AgentId, Exec } from "../src/install.ts";
+import type { PickerAgent } from "../src/pick.ts";
 import { run } from "../src/run.ts";
 import type { Io } from "../src/run.ts";
 
@@ -332,4 +333,87 @@ test("the main help shows mcp add", () => {
     MAIN_HELP,
     /extraktor mcp add {2,}Add the Extraktor MCP server/u
   );
+});
+
+/** A picker that records what it was shown and returns `answer`. */
+const fakePicker = (answer: AgentId[] | null) => {
+  const shown: { action: string; agents: readonly PickerAgent[] }[] = [];
+  return {
+    shown,
+    pickAgents: (action: "add" | "remove", agents: readonly PickerAgent[]) => {
+      shown.push({ action, agents });
+      return Promise.resolve(answer === null ? null : new Set(answer));
+    },
+  };
+};
+
+test("mcp add in a terminal changes only the agents that the person picks", async () => {
+  const home = await makeHome(["codex", "cursor"]);
+  const picker = fakePicker(["cursor"]);
+  const { io, stdout } = makeIo(home, missingProgram);
+  io.interactive = true;
+  io.pickAgents = picker.pickAgents;
+
+  assert.equal(await run(["mcp", "add"], io), EXIT.ok);
+
+  assert.equal(picker.shown.length, 1);
+  assert.deepEqual(
+    picker.shown[0]?.agents.filter(({ found }) => found).map(({ id }) => id),
+    ["codex", "cursor"]
+  );
+  assert.deepEqual(await readJson(path.join(home, ".cursor", "mcp.json")), {
+    mcpServers: { extraktor: { url: URL } },
+  });
+  assert.equal(
+    await readFile(path.join(home, ".codex", "config.toml"), "utf-8").catch(
+      () => ""
+    ),
+    ""
+  );
+  assert.match(stdout(), /Added to:\n {2}- Cursor\./u);
+  assert.doesNotMatch(stdout(), /Codex|Not found/u);
+});
+
+test("mcp add in a terminal changes nothing when the person cancels", async () => {
+  const home = await makeHome(["cursor"]);
+  const { io, stdout, stderr } = makeIo(home, missingProgram);
+  io.interactive = true;
+  io.pickAgents = fakePicker(null).pickAgents;
+
+  assert.equal(await run(["mcp", "add"], io), EXIT.ok);
+
+  assert.equal(stdout(), "");
+  assert.match(stderr(), /Canceled\. Nothing changed\./u);
+  await assert.rejects(readFile(path.join(home, ".cursor", "mcp.json")));
+});
+
+test("mcp add asks no question when an agent, --agent or --json runs it", async () => {
+  for (const [args, env] of [
+    [["mcp", "add"], { CLAUDECODE: "1" }],
+    [["mcp", "add", "--agent", "cursor"], {}],
+    [["mcp", "add", "--json"], {}],
+  ] as const) {
+    const home = await makeHome(["cursor"]);
+    const picker = fakePicker([]);
+    const { io } = makeIo(home, missingProgram);
+    Object.assign(io.env, env);
+    io.interactive = true;
+    io.pickAgents = picker.pickAgents;
+
+    assert.equal(await run([...args], io), EXIT.ok, args.join(" "));
+    assert.equal(picker.shown.length, 0, args.join(" "));
+  }
+});
+
+test("mcp add in a terminal reports no agent without a question", async () => {
+  const home = await makeHome([]);
+  const picker = fakePicker([]);
+  const { io, stderr } = makeIo(home, missingProgram);
+  io.interactive = true;
+  io.pickAgents = picker.pickAgents;
+
+  assert.equal(await run(["mcp", "add"], io), EXIT.failure);
+
+  assert.equal(picker.shown.length, 0);
+  assert.match(stderr(), /No coding agent was found/u);
 });

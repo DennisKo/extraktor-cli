@@ -6,7 +6,15 @@
  * at the same time. A second run changes nothing.
  */
 import { execFile } from "node:child_process";
-import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
+import {
+  access,
+  constants,
+  mkdir,
+  readFile,
+  rename,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
@@ -59,6 +67,8 @@ interface Agent {
   id: AgentId;
   name: string;
   next: string;
+  /** True when the agent is installed on this computer. */
+  detect: (context: InstallContext) => Promise<boolean>;
   add: (context: InstallContext) => Promise<Outcome>;
   remove: (context: InstallContext) => Promise<Outcome>;
 }
@@ -137,9 +147,28 @@ const readText = async (file: string) => {
   }
 };
 
+/** True when a program with this name is on the PATH. */
+const onPath = async (program: string, { env, platform }: InstallContext) => {
+  const names =
+    platform === "win32"
+      ? [`${program}.exe`, `${program}.cmd`, program]
+      : [program];
+  const files = (env.PATH ?? "")
+    .split(path.delimiter)
+    .filter(Boolean)
+    .flatMap((dir) => names.map((name) => path.join(dir, name)));
+  try {
+    await Promise.any(files.map((file) => access(file, constants.X_OK)));
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 const claudeCode: Agent = {
   id: "claude-code",
   name: "Claude Code",
+  detect: (context) => onPath("claude", context),
   next: "Run /mcp in Claude Code, select extraktor, and sign in.",
   add: async ({ exec, url }) => {
     const result = await exec("claude", [
@@ -217,6 +246,7 @@ const removeCodexTables = (toml: string) => {
 const codex: Agent = {
   id: "codex",
   name: "Codex",
+  detect: ({ env }) => exists(codexDir(env)),
   next: "Run: codex mcp login extraktor --scopes profile",
   add: async ({ env, url }) => {
     const dir = codexDir(env);
@@ -290,6 +320,7 @@ const jsonAgent = ({
 
   return {
     ...agent,
+    detect: (context) => exists(dir(context)),
     add: async (context) => {
       const loaded = await load(context);
       if (!loaded) {
@@ -393,6 +424,18 @@ const AGENT_ID_SET: ReadonlySet<string> = new Set(AGENT_IDS);
 
 export const isAgentId = (name: string): name is AgentId =>
   AGENT_ID_SET.has(name);
+
+/** The agents that are installed on this computer, in list order. */
+export const findAgents = async (
+  context: InstallContext
+): Promise<Set<AgentId>> => {
+  const found = await Promise.all(
+    AGENTS.map(async (agent) =>
+      (await agent.detect(context)) ? agent.id : null
+    )
+  );
+  return new Set(found.filter((id) => id !== null));
+};
 
 /** Adds or removes the server in each agent, all at the same time. */
 export const changeAgents = (
