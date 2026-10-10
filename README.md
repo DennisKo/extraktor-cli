@@ -17,6 +17,8 @@ Extraktor needs a Starter or Pro plan. Make API keys at <https://extraktor.app/d
 | Read a page, then answer or summarize | `extraktor extract <url>` |
 | Get facts from a page | `extraktor extract <url> --find "<text>"` |
 | Read or compare 2 to 5 pages | `extraktor extract <url> <url> ...` |
+| Find a link or the pages of a site | `extraktor extract <url> --links --focus "<words>"` |
+| Get data as JSON in a shape you give | `extraktor extract <url> --fields "<data or JSON Schema>"` |
 | Quote a page with a link to each quote | `extraktor extract <url> --excerpts --focus "<topic>"` |
 | Save the complete page as Markdown | `extraktor extract <url> --save page.md` |
 | Get contact details | `extraktor extract <url> --contacts` |

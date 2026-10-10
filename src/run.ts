@@ -19,6 +19,7 @@ import {
 import type { AgentId, AgentResult, Exec, InstallContext } from "./install.ts";
 import type { ExtractArgs, ToolResult } from "./mcp.ts";
 import type { Picker } from "./pick.ts";
+import { jsonObject } from "./schemas.ts";
 import { closest, optionError, usageError } from "./usage.ts";
 import { VERSION } from "./version.ts";
 
@@ -58,6 +59,9 @@ const EXTRACT_FLAGS = {
   excerpts: { type: "boolean" },
   summary: { type: "boolean" },
   focus: { type: "string" },
+  links: { type: "boolean" },
+  sitemap: { type: "boolean" },
+  fields: { type: "string" },
   screenshot: { type: "boolean" },
   "screenshot-file": { type: "string" },
   save: { type: "string" },
@@ -210,9 +214,21 @@ const parseOffset = (value: string | undefined) => {
 
 /** Option combinations that do not work. */
 const checkExtractOptions = (values: ExtractValues) => {
-  if (values.focus !== undefined && !values.excerpts && !values.summary) {
+  if (
+    values.focus !== undefined &&
+    !values.excerpts &&
+    !values.summary &&
+    !values.links &&
+    !values.sitemap
+  ) {
     throw usageError(
-      'Use --focus with --excerpts or --summary. To get only the parts of the page with some text, use --find "text".',
+      'Use --focus with --excerpts, --summary or --links. To get only the parts of the page with some text, use --find "text".',
+      "extract"
+    );
+  }
+  if (values.fields !== undefined && !values.fields.trim()) {
+    throw usageError(
+      'Give --fields the data to get, for example --fields "each plan with name and monthly price", or a JSON Schema.',
       "extract"
     );
   }
@@ -239,6 +255,43 @@ const checkExtractOptions = (values: ExtractValues) => {
   }
 };
 
+/**
+ * The fields input from the --fields text: a JSON object is a JSON Schema,
+ * and other text describes the data.
+ */
+const fieldsArgs = (text: string): NonNullable<ExtractArgs["fields"]> => {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith("{")) {
+    return { enabled: true, prompt: trimmed };
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch (error) {
+    throw usageError(
+      `--fields starts with "{" but is not correct JSON (${error instanceof Error ? error.message : "parse error"}). Give a JSON Schema object, or describe the data in words.`,
+      "extract"
+    );
+  }
+  const schema = jsonObject.safeParse(parsed);
+  if (!schema.success) {
+    throw usageError("Give --fields a JSON Schema object.", "extract");
+  }
+  return { enabled: true, schema: schema.data };
+};
+
+/** The links and fields inputs. */
+const pageDataArgs = (
+  values: ExtractValues,
+  focus: string | undefined
+): Pick<ExtractArgs, "links" | "fields"> => ({
+  links:
+    values.links || values.sitemap
+      ? { enabled: true, query: focus, sitemap: values.sitemap || undefined }
+      : undefined,
+  fields: values.fields === undefined ? undefined : fieldsArgs(values.fields),
+});
+
 /** The page text that the command prints. The CLI cuts it from the complete text. */
 const textRequest = (values: ExtractValues): TextRequest => ({
   finds: [...new Set(values.find?.map((find) => find.trim()))],
@@ -260,6 +313,7 @@ const extractArgs = (url: string, values: ExtractValues): ExtractArgs => {
     url,
     excerpts: values.excerpts ? { enabled, query: focus } : undefined,
     summary: values.summary ? { enabled, query: focus } : undefined,
+    ...pageDataArgs(values, focus),
     screenshot: wants.screenshot ? { enabled } : undefined,
     contacts: values.contacts ? { enabled } : undefined,
     messaging: values.messaging ? { enabled } : undefined,

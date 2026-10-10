@@ -7,7 +7,12 @@ import { subscribe, unsubscribe } from "node:diagnostics_channel";
 
 import { CliError, EXIT } from "./errors.ts";
 import type * as SchemaModule from "./schemas.ts";
-import type { JsonRpcResponse, ToolFailure, ToolResult } from "./schemas.ts";
+import type {
+  JsonRpcResponse,
+  JsonValue,
+  ToolFailure,
+  ToolResult,
+} from "./schemas.ts";
 import { VERSION } from "./version.ts";
 
 export type { ToolFailure, ToolResult } from "./schemas.ts";
@@ -120,6 +125,9 @@ export interface ExtractArgs {
   url: string;
   excerpts?: Enabled & { query?: string };
   summary?: Enabled & { query?: string };
+  links?: Enabled & { query?: string; sitemap?: true };
+  fields?: Enabled &
+    ({ prompt: string } | { schema: Record<string, JsonValue> });
   screenshot?: Enabled;
   contacts?: Enabled;
   messaging?: Enabled;

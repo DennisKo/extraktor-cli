@@ -83,6 +83,8 @@ const writeCached = async (dir: string, file: string, result: ToolResult) => {
 const OUTPUT_KEYS = new Set([
   "excerpts",
   "summary",
+  "fields",
+  "links",
   "screenshot",
   "contacts",
   "messaging",

@@ -122,6 +122,31 @@ export const contactsOutput = z.union([
     contactPages: z.array(z.string()).optional(),
   }),
 ]);
+const linkItem = z.object({ url: z.string(), text: z.string() });
+export const linksOutput = z.union([
+  z.object({
+    status: z.literal("success"),
+    content: z.array(linkItem),
+    navigation: z.array(linkItem),
+    sitemap: z
+      .object({
+        urls: z.array(z.string()),
+        total: z.number(),
+        complete: z.boolean(),
+      })
+      .optional(),
+    message: z.string().optional(),
+  }),
+  outputFailure,
+]);
+export const fieldsOutput = z.union([
+  z.object({
+    status: z.literal("success"),
+    data: z.json(),
+    missing: z.array(z.string()).optional(),
+  }),
+  outputFailure,
+]);
 const messagingCta = z
   .object({ text: z.string(), url: z.string().nullable() })
   .nullable();
@@ -221,6 +246,8 @@ export const extractSchema = z.object({
   structuredData: z.array(z.json()).optional(),
   summary: markdownOutput.optional(),
   excerpts: excerptsOutput.optional(),
+  fields: fieldsOutput.optional(),
+  links: linksOutput.optional(),
   contacts: contactsOutput.optional(),
   messaging: messagingOutput.optional(),
   seo: reportOutput.optional(),
@@ -230,8 +257,10 @@ export const extractSchema = z.object({
 });
 export type ExtractPage = z.infer<typeof extractSchema>;
 
-const jsonValue = z.json();
+export const jsonValue = z.json();
 export type JsonValue = z.infer<typeof jsonValue>;
+/** A JSON object, for example a JSON Schema. */
+export const jsonObject = z.record(z.string(), jsonValue);
 const serpEntry = z.record(z.string(), jsonValue);
 export type SerpEntry = z.infer<typeof serpEntry>;
 const scalarText = z.union([z.string(), z.number()]).transform(String);

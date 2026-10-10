@@ -23,6 +23,8 @@ import type {
   ExtractPage,
   contactsOutput,
   excerptsOutput,
+  fieldsOutput,
+  linksOutput,
   markdownOutput,
   messagingOutput,
   reportOutput,
@@ -87,6 +89,38 @@ const renderExcerpts = (output: z.infer<typeof excerptsOutput>) => {
   return links.length > 0
     ? `${output.markdown.trim()}\n\nPassage links:\n${links.join("\n")}`
     : output.markdown.trim();
+};
+
+const linkLine = ({ text, url }: { text: string; url: string }) =>
+  text ? `- ${text}: ${url}` : `- ${url}`;
+
+const renderLinks = (output: z.infer<typeof linksOutput>) => {
+  if (output.status !== "success") {
+    return failedOutput(output);
+  }
+  const sections = [
+    output.message ?? "",
+    output.content.length > 0
+      ? `Content:\n${output.content.map(linkLine).join("\n")}`
+      : "",
+    output.navigation.length > 0
+      ? `Navigation:\n${output.navigation.map(linkLine).join("\n")}`
+      : "",
+    output.sitemap
+      ? `Sitemap (${output.sitemap.urls.length} of ${output.sitemap.total}):\n${output.sitemap.urls.map((url) => `- ${url}`).join("\n")}`
+      : "",
+  ];
+  return sections.filter(Boolean).join("\n\n");
+};
+
+const renderFields = (output: z.infer<typeof fieldsOutput>) => {
+  if (output.status !== "success") {
+    return failedOutput(output);
+  }
+  const json = `\`\`\`json\n${JSON.stringify(output.data, null, 2)}\n\`\`\``;
+  return output.missing?.length
+    ? `${json}\n\nNot on the page (null): ${output.missing.join(", ")}`
+    : json;
 };
 
 const labelled = (value: string, label: string | null) =>
@@ -255,6 +289,8 @@ const outputSections = (page: ExtractPage) =>
   [
     ["Summary (AI)", page.summary && renderMarkdown(page.summary)],
     ["Excerpts", page.excerpts && renderExcerpts(page.excerpts)],
+    ["Fields (AI)", page.fields && renderFields(page.fields)],
+    ["Links", page.links && renderLinks(page.links)],
     ["Contacts", page.contacts && renderContacts(page.contacts)],
     ["Messaging", page.messaging && renderMessaging(page.messaging)],
     ["SEO", page.seo && renderReport(page.seo)],
