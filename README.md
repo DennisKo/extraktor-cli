@@ -43,12 +43,12 @@ Use `--agent <name>` to change only some agents, and `--json` for a JSON result.
 
 ## Exit codes
 
-| Code | Meaning |
-| --- | --- |
-| 0 | Success. |
-| 1 | The page, the search or the server failed. Read the message. |
-| 2 | The command or an option is not correct. The message tells the fix. |
-| 3 | Sign-in, a plan or credits are necessary. |
+| Code | Meaning                                                             |
+| ---- | ------------------------------------------------------------------- |
+| 0    | Success.                                                            |
+| 1    | The page, the search or the server failed. Read the message.        |
+| 2    | The command or an option is not correct. The message tells the fix. |
+| 3    | Sign-in, a plan or credits are necessary.                           |
 
 Each error tells the next step. With `--json`, errors are JSON on standard output.
 

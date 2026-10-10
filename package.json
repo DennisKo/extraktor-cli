@@ -13,14 +13,14 @@
     "web"
   ],
   "homepage": "https://extraktor.app",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/DennisKo/extraktor-cli.git"
-  },
   "bugs": {
     "url": "https://github.com/DennisKo/extraktor-cli/issues"
   },
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DennisKo/extraktor-cli.git"
+  },
   "bin": {
     "extraktor": "dist/cli.js"
   },
