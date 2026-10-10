@@ -406,7 +406,7 @@ test("failures map to exit codes and print the server guidance", async (t) => {
               type: "text",
               text: JSON.stringify({
                 code: "BILLING_REQUIRED",
-                message: "An active Pro subscription is necessary.",
+                message: "API keys need an active Starter or Pro subscription.",
                 retryable: false,
                 guidance: "Stop. Tell the user to manage the subscription.",
               }),

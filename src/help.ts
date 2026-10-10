@@ -97,7 +97,7 @@ const ENVIRONMENT = `Sign-in:
   EXTRAKTOR_API_KEY          Use this API key. Make keys on the developers
                              page: https://extraktor.app/developers
   extraktor login            Or sign in with a browser and save a key.
-  Extraktor needs a Pro plan.
+  Extraktor needs a Starter or Pro plan.
 
 Exit codes:
   0  Success.

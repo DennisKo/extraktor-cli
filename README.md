@@ -8,7 +8,7 @@ extraktor login                      # or: export EXTRAKTOR_API_KEY=ext_...
 extraktor extract https://example.com
 ```
 
-Extraktor needs a Pro plan. Make API keys at <https://extraktor.app/developers>.
+Extraktor needs a Starter or Pro plan. Make API keys at <https://extraktor.app/developers>.
 
 ## Tasks
 
