@@ -1,6 +1,6 @@
 {
   "name": "@extraktor/cli",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Read live web pages as Markdown and search the web from the terminal. Built for AI agents.",
   "keywords": [
     "agent",
